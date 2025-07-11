@@ -29,16 +29,20 @@ menu_item.click_input()
 
 # 操作弹窗
 # 操作组合框，并且点击下拉框中的选项
-combo_box = dlg.child_window(best_match="ComboBox")
-combo_box.chick_input()
+# combo_box = dlg.child_window(best_match="ComboBox")
+# combo_box.chick_input()
+# 版本更新后，ComboBox控件需要点击才能显示
+combo = dlg.window(class_name="WindowsForms10.COMBOBOX.app.0.13965fa_r8_ad1", title_re="")
+combo.click_input()
 select_item = dlg.child_window(best_match="WCAT Script")
 select_item.click_input()
 
 # 点击操作Button
 button = dlg.child_window(best_match="Next")
+button.click_input()
 
 # 文件对话框输入文件名
 dlg.child_window(title_re="文件名:", control_type="Edit").set_text("export_sessions")
 
 # 点击保存
-dlg.child_window(title_re="保存").click_input()
+dlg.child_window(title="保存(S)").click_input()

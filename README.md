@@ -6,3 +6,4 @@ pywinauto是一个用于自动化Python 模块，适合Windows系统的软件（
 ### 文档参考
 - [pywinauto的简单使用](https://blog.csdn.net/qq_39147299/article/details/132409817)
 - [Fiddler4下载](https://pc.qq.com/detail/10/detail_3330.html)
+- [Windows SDK Tools（inspect.exe）](https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/)
