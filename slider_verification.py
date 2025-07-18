@@ -262,65 +262,170 @@ class SliderVerification:
         print(f"计算滑动距离: {distance} 像素")
         return distance
 
-    def visualize_moving_track(self, background, slider_image, gap_center, slider_center, distance):
+    def plot_trajectory(self, background, slider_image, gap_center, slider_center, distance, slider_y=None):
         """
-        移动轨迹可视化
-        :param background:
-        :param slider_image:
-        :param gap_center:
-        :param slider_center:
-        :param distance:
+        移动轨迹可视化绘制
+        :param background: 背景图片
+        :param slider_image: 滑块图片
+        :param gap_center: 识别的缺口中心
+        :param slider_center: 滑块中心
+        :param distance: 滑动距离
+        :param slider_y: 滑块在背景图上的垂直位置 (None表示自动居中)
         :return:
         """
-        # 创建可视化图像
+        # 创建可视化图像副本
         vis = background.copy()
 
-        # 绘制坑位中心
+        # 获取图像尺寸
+        slider_height, slider_width = slider_image.shape[:2]
+        bg_height, bg_width = background.shape[:2]
+
+        # 计算滑块位置 (水平位置固定在左侧)
+        if slider_y is None:
+            # 默认垂直居中
+            slider_y = (bg_height - slider_height) // 2
+        else:
+            # 确保滑块不会超出背景图边界
+            if slider_y < 0:
+                slider_y = 0
+            elif slider_y + slider_height > bg_height:
+                slider_y = bg_height - slider_height
+
+        slider_pos = (0, slider_y)
+
+        # 绘制滑块位置标记
+        # cv2.rectangle(vis, (0, slider_y), (10, slider_y + slider_height), (0, 255, 0), 2)
+        # cv2.putText(vis, f"滑块位置: y={slider_y}",
+        #             (15, slider_y + 20),
+        #             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 1)
+
+        # 将滑块叠加到背景图上（处理透明通道）
+        if slider_image.shape[2] == 4:  # 如果有透明通道
+            # 分离滑块图像和透明通道
+            slider_rgb = slider_image[:, :, :3]
+            alpha_channel = slider_image[:, :, 3] / 255.0
+
+            # 提取背景图的相应区域
+            x1, y1 = slider_pos
+            x2, y2 = x1 + slider_width, y1 + slider_height
+            roi = vis[y1:y2, x1:x2]
+
+            # 创建逆透明通道
+            alpha_inv = 1.0 - alpha_channel
+
+            # 为每个通道应用透明混合
+            for c in range(0, 3):
+                roi[:, :, c] = (alpha_channel * slider_rgb[:, :, c] +
+                                alpha_inv * roi[:, :, c])
+
+            # 更新背景图的相应区域
+            vis[y1:y2, x1:x2] = roi
+        else:
+            # 没有透明通道，直接覆盖滑块
+            x1, y1 = slider_pos
+            x2, y2 = x1 + slider_width, y1 + slider_height
+            vis[y1:y2, x1:x2] = slider_image
+
+        # 绘制滑块中心点（在背景图坐标系中的位置）
+        slider_vis_center = (slider_center[0] + slider_pos[0],
+                             slider_center[1] + slider_pos[1])
+
+        # 绘制滑块中心点
+        cv2.circle(vis, slider_vis_center, 8, (0, 255, 0), -1)
+        cv2.circle(vis, slider_vis_center, 10, (0, 100, 0), 2)
+        # cv2.putText(vis, "Slider center",
+        #             (slider_vis_center[0] + 15, slider_vis_center[1]),
+        #             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+        # 绘制坑位中心点
         if gap_center:
             cv2.circle(vis, gap_center, 10, (0, 0, 255), -1)
-            cv2.putText(vis, "Gap Center", (gap_center[0] + 15, gap_center[1]),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            cv2.circle(vis, gap_center, 12, (0, 0, 100), 2)
+            # cv2.putText(vis, "Gap center",
+            #             (gap_center[0] + 15, gap_center[1]),
+            #             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
-        # 绘制滑块位置和中心
-        if slider_center:
-            # 假设滑块位于左侧边缘
-            slider_height = slider_image.shape[0]
-            y_offset = (background.shape[0] - slider_height) // 2
-            slider_pos = (0, y_offset)
+            # 绘制滑动路径
+            cv2.line(vis, slider_vis_center, gap_center,
+                     (255, 0, 0), 3, cv2.LINE_AA)
 
-            # 绘制滑块轮廓
-            cv2.rectangle(vis,
-                          slider_pos,
-                          (slider_pos[0] + slider_image.shape[1], slider_pos[1] + slider_height),
-                          (0, 255, 0), 2)
+            # 绘制距离标注
+            mid_x = (slider_vis_center[0] + gap_center[0]) // 2
+            mid_y = (slider_vis_center[1] + gap_center[1]) // 2
 
-            # 绘制滑块中心点
-            slider_vis_center = (slider_center[0] + slider_pos[0],
-                                 slider_center[1] + slider_pos[1])
-            cv2.circle(vis, slider_vis_center, 5, (0, 255, 0), -1)
-            cv2.putText(vis, "Slider Center", (slider_vis_center[0] + 15, slider_vis_center[1]),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            # 绘制距离标注框
+            text = f"Sliding distance: {abs(distance):.1f}px"
+            text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.2, 2)[0]
+            text_x = mid_x - text_size[0] // 2
+            text_y = mid_y - 10
 
-            # 绘制距离线
-            if gap_center:
-                cv2.line(vis, slider_vis_center, gap_center,
-                         (255, 0, 0), 2, cv2.LINE_AA)
-                mid_point = ((slider_vis_center[0] + gap_center[0]) // 2,
-                             (slider_vis_center[1] + gap_center[1]) // 2)
-                cv2.putText(vis, f"Distance: {distance}px",
-                            (mid_point[0], mid_point[1] - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+            # 绘制半透明背景
+            overlay = vis.copy()
+            cv2.rectangle(overlay,
+                          (text_x - 10, text_y - text_size[1] - 10),
+                          (text_x + text_size[0] + 10, text_y + 10),
+                          (50, 50, 50), -1)
+
+            # 应用半透明效果
+            alpha = 0.7
+            cv2.addWeighted(overlay, alpha, vis, 1 - alpha, 0, vis)
+
+            # 绘制文本
+            cv2.putText(vis, text,
+                        (text_x, text_y),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+            # 绘制方向指示箭头
+            if distance > 0:
+                cv2.arrowedLine(vis,
+                                (text_x + text_size[0] + 15, mid_y),
+                                (text_x + text_size[0] + 45, mid_y),
+                                (255, 200, 0), 2, tipLength=0.3)
+            else:
+                cv2.arrowedLine(vis,
+                                (text_x - 15, mid_y),
+                                (text_x - 45, mid_y),
+                                (255, 200, 0), 2, tipLength=0.3)
+
+        # # 添加标题和说明
+        # cv2.putText(vis, "滑块验证分析结果",
+        #             (10, 30),
+        #             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 3)
+        # cv2.putText(vis, "滑块验证分析结果",
+        #             (10, 30),
+        #             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 1)
+
+        # 添加位置信息
+        position_info = f"Slider position: y={slider_y} (height: {slider_height}px)"
+        cv2.putText(vis, position_info,
+                    (bg_width - 400, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 100), 2)
+
+        # 添加图例
+        legend_y = bg_height - 30
+        cv2.circle(vis, (20, legend_y), 8, (0, 255, 0), -1)
+        cv2.putText(vis, "Slider center", (40, legend_y + 5),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1)
+
+        cv2.circle(vis, (120, legend_y), 8, (0, 0, 255), -1)
+        cv2.putText(vis, "Gap center", (140, legend_y + 5),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 0, 255), 1)
+
+        cv2.line(vis, (220, legend_y), (250, legend_y), (255, 0, 0), 2)
+        cv2.putText(vis, "Sliding distance", (260, legend_y + 5),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 0, 0), 1)
 
         # 显示结果
-        plt.figure(figsize=(12, 6))
-        plt.subplot(121), plt.imshow(cv2.cvtColor(background, cv2.COLOR_BGR2RGB))
-        plt.title('Original background image'), plt.axis('off')
-        plt.subplot(122), plt.imshow(cv2.cvtColor(vis, cv2.COLOR_BGR2RGB))
-        plt.title('Detected center and moving track'), plt.axis('off')
+        plt.figure(figsize=(14, 8))
+        plt.imshow(cv2.cvtColor(vis, cv2.COLOR_BGR2RGB))
+        plt.title("Slider verification analysis result")
+        plt.axis('off')
         plt.tight_layout()
         plt.show()
 
-    def process_verification(self, background_path, slider_path):
+        return vis  # 返回可视化图像
+
+    def process_verification(self, background_path, slider_path, slider_y):
         """
         完整的滑块验证处理流程
 
@@ -359,7 +464,7 @@ class SliderVerification:
 
                 # 可视化结果
                 if self.debug:
-                    self.visualize_moving_track(background, slider_img, gap_center, slider_center, distance)
+                    self.plot_trajectory(background, slider_img, gap_center, slider_center, distance, slider_y)
 
         except Exception as e:
             print(f"处理失败: {str(e)}")
@@ -371,7 +476,7 @@ def main():
     parser = argparse.ArgumentParser(description='抖音滑块认证工具')
     parser.add_argument('--background', required=True, help='背景图片')
     parser.add_argument('--slider', required=True, help='滑块图片')
-    parser.add_argument('--slider_y', required=True, help='滑块y轴坐标')
+    parser.add_argument('--slider_y', help='滑块y轴坐标')
 
     args = parser.parse_args()
 
@@ -379,10 +484,10 @@ def main():
 
     background_path = args.background
     slider_path = args.slider
-    slider_y = int(args.slider_y)
+    slider_y = args.slider_y and int(args.slider_y)
 
     # 执行滑块验证处理
-    result = recognizer.process_verification(background_path, slider_path)
+    result = recognizer.process_verification(background_path, slider_path, slider_y)
 
     # 打印结果
     print("\n处理结果:")
@@ -393,16 +498,6 @@ def main():
     # 获取滑块拖动按钮的位置
 
     # pyautogui模拟用户点击拖动鼠标，完成认证
-
-    """
-接下来需要完成：
-1. 获取滑块拖动按钮的位置（我的思路是截图滑块验证的窗口，拖动按钮在窗口位置是固定的，我可以获取拖动按钮的坐标）
-2. pyautogui模拟用户点击（点击的坐标要考虑拖动按钮在整个窗口的坐标）拖动鼠标，完成认证
-
-请结合以上需求，用代码实现
-
-visualize_results()绘制结果中，把slider_image作为图层叠加进去一同绘制应该怎么处理
-    """
 
 
 if __name__ == "__main__":
