@@ -1,10 +1,50 @@
 import ctypes
+from typing import Dict, Any
 
+import win32api
 import win32gui
 import win32con
 import win32ui
 import pygetwindow as gw
 from PIL import Image
+
+
+class WindowInfo:
+    """封装窗口信息的类"""
+
+    def __init__(self, handle, title, class_name, x, y, width, height,
+                 title_height, title_width, is_active, state):
+        self.handle = handle
+        self.title = title
+        self.class_name = class_name
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.title_height = title_height
+        self.title_width = title_width
+        self.is_active = is_active
+        self.state = state
+
+    def __str__(self):
+        """自定义输出格式"""
+        return f"WindowInfo(handle={self.handle}, title='{self.title}')"
+
+    def __repr__(self):
+        return self.__str__()
+
+    def to_dict(self, exclude_fields=[]) -> Dict[str, Any]:
+        data = vars(self)
+
+        res = {}
+        for k, v in data.items():
+            if k in exclude_fields:
+                continue
+            if k.startswith('_') or k.startswith('__'):
+                continue
+
+            res[k] = v
+        return res
 
 
 class WindowManager:
@@ -113,7 +153,6 @@ class WindowManager:
 
         return image
 
-
     def move(self, x, y):
         """Move window to (x, y)."""
         rect = win32gui.GetWindowRect(self.hw)
@@ -135,13 +174,24 @@ class WindowManager:
         """Hide the window."""
         win32gui.ShowWindow(self.hw, win32con.SW_HIDE)
 
-    def get_window_info(self):
+    def get_window_info(self) -> WindowInfo:
         """Return dict with position, size, and active state."""
         # 窗口坐标、宽高
         rect = win32gui.GetWindowRect(self.hw)
         x, y, right, bottom = rect
         width = right - x
         height = bottom - y
+
+        # 标题栏高度：边框+标题栏
+        # SM_CYCAPTION 标题栏高度，SM_CYFRAME（或 SM_CYSIZEFRAME）是顶边和底边框高度
+        frame_height = win32api.GetSystemMetrics(win32con.SM_CYFRAME)
+        caption_height = win32api.GetSystemMetrics(win32con.SM_CYCAPTION)
+        title_height = caption_height + frame_height
+
+        # 标题栏宽度：去掉左右边框后的窗口宽度
+        # SM_CXFRAME（或 SM_CXSIZEFRAME）是左+右边框宽度
+        frame_width = win32api.GetSystemMetrics(win32con.SM_CXFRAME)
+        title_width = width - 2 * frame_width
 
         # 是否激活
         is_active = (self.hw == win32gui.GetForegroundWindow())
@@ -155,17 +205,19 @@ class WindowManager:
         else:
             state = 'normal'
 
-        return {
-            'handle': self.hw,
-            'title': win32gui.GetWindowText(self.hw),
-            'class_name': win32gui.GetClassName(self.hw),
-            'x': x,
-            'y': y,
-            'width': width,
-            'height': height,
-            'is_active': is_active,
-            'state': state,
-        }
+        return WindowInfo(
+            handle=self.hw,
+            title=win32gui.GetWindowText(self.hw),
+            class_name=win32gui.GetClassName(self.hw),
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            title_height=title_height,
+            title_width=title_width,
+            is_active=is_active,
+            state=state
+        )
 
     def is_window_active(self):
         """Return True if the specified window is the foreground window."""
@@ -180,8 +232,8 @@ class WindowManager:
 
 
 if __name__ == "__main__":
-    wm = WindowManager(title="直播伴侣")
+    wm = WindowManager(title="图片显示器")
     im = wm.screenshot()
-    im.save('douyin_live_screenshot.png')
+    im.save('image_viewer.png')
     info = wm.get_window_info()
-    print(info)
+    print(info.to_dict())

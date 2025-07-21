@@ -5,6 +5,9 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 
+from utils.simulator import MouseDragSimulator
+from utils.window_manager import WindowManager
+
 
 class SliderVerification:
     """
@@ -464,7 +467,7 @@ class SliderVerification:
 
                 # 可视化结果
                 if self.debug:
-                    self.plot_trajectory(background, slider_img, gap_center, slider_center, distance, slider_y)
+                    self.plot_trajectory(background, slider_img, gap_center, slider_center, distance, slider_y * 2)
 
         except Exception as e:
             print(f"处理失败: {str(e)}")
@@ -476,7 +479,7 @@ def main():
     parser = argparse.ArgumentParser(description='抖音滑块认证工具')
     parser.add_argument('--background', required=True, help='背景图片')
     parser.add_argument('--slider', required=True, help='滑块图片')
-    parser.add_argument('--slider_y', help='滑块y轴坐标')
+    parser.add_argument('--slider_y', help='滑块y轴坐标')    # 原图和弹窗显示图片缩放比例为2倍
 
     args = parser.parse_args()
 
@@ -495,13 +498,33 @@ def main():
     print(f"滑块中心: {result.get('slider_center', 'N/A')}")
     print(f"滑动距离: {result.get('distance', 'N/A')} 像素")
 
-    # 获取滑块拖动按钮的位置
+
+    wm = WindowManager(title="图片显示器")
+    window_info = wm.get_window_info()
+
+    # 获取滑块拖动按钮的位置（原图和弹窗显示图片缩放比例为2倍）
+    slider_center_x, slider_center_y = result.get('slider_center', (0, 0))
+    gap_center_x, gap_center_y = result.get('gap_center', (0, 0))
+
+    # slider_pos_y = (slider_center_y // 2) + slider_y + window_info.y + window_info.title_height
+    slider_pos_y = (344 // 2) + window_info.y + window_info.title_height
+    slider_pos_x = (slider_center_x // 2) + window_info.x
+
+    # gap_pos_y = (gap_center_y // 2) + window_info.y + window_info.title_height
+    gap_pos_y = (344 // 2) + window_info.y + window_info.title_height
+    gap_pos_x = (gap_center_x // 2) + window_info.x
+
+    # 显示窗口
+    wm.activate()
 
     # pyautogui模拟用户点击拖动鼠标，完成认证
+    simulator = MouseDragSimulator(duration=1.5, steps=60)
+    print(f"点击拖动起始点位置：{(slider_pos_x, slider_pos_y), (gap_pos_x, gap_pos_y)}")
+    simulator.drag((slider_pos_x, slider_pos_y), (gap_pos_x, gap_pos_y))
 
 
 if __name__ == "__main__":
     """
-    python main.py --background resources/background/bg0.png --slider resources/slider/cut0.png --slider_y 170
+    python main.py --background resources/background/bg0.png --slider resources/slider/cut0.png --slider_y 172
     """
     main()
