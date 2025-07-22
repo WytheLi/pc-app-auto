@@ -525,6 +525,12 @@ def main():
 
 if __name__ == "__main__":
     """
+    抖音pc端直播伴侣滑块验证功能实现
+    1. 基于抓包获取到的滑块、背景图片；
+    2. opencv进行轮廓比对计算，分别获取滑块和缺口在背景图中坐标、滑动的横向距离；
+    3. 结合win32gui模块截图指定滑块窗口，计算在windows窗口中的坐标；
+    4. 使用pyautogui自动化工具模拟用户点击拖动滑块
+    
     python main.py --background resources/background/bg0.png --slider resources/slider/cut0.png --slider_y 172
     """
     main()

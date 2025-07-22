@@ -166,9 +166,9 @@ class WindowManager:
         x, y = rect[0], rect[1]
         win32gui.MoveWindow(self.hw, x, y, width, height, True)
 
-    def show(self, flags=win32con.SW_SHOW):
-        """Show or restore the window. Default flags=SW_SHOW."""
-        win32gui.ShowWindow(self.hw, flags)
+    def show(self):
+        """Show or restore the window."""
+        win32gui.ShowWindow(self.hw, win32con.SW_SHOW)
 
     def hide(self):
         """Hide the window."""
@@ -219,7 +219,8 @@ class WindowManager:
             state=state
         )
 
-    def is_window_active(self):
+    @property
+    def is_active(self):
         """Return True if the specified window is the foreground window."""
         return self.hw == win32gui.GetForegroundWindow()
 
@@ -232,8 +233,8 @@ class WindowManager:
 
 
 if __name__ == "__main__":
-    wm = WindowManager(title="图片显示器")
+    wm = WindowManager(title="直播伴侣")
     im = wm.screenshot()
-    im.save('image_viewer.png')
+    im.save('douyin_live.png')
     info = wm.get_window_info()
     print(info.to_dict())
